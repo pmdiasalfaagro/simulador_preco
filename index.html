@@ -402,11 +402,11 @@
 
         // Tabela de preços por diária
         var precoPorDiaria = {
-            'MICRO': 0.09445,
-            'PEQUENO': 0.04143,
-            'MEDIO': 0.02854,
-            'GRANDE': 0.01722,
-            'ENTERPRISE': 0.01663
+            'MICRO': 0.0992,
+            'PEQUENO': 0.0456,
+            'MEDIO': 0.0300,
+            'GRANDE': 0.0181,
+            'ENTERPRISE': 0.0175
         };
 
         // Tabela de distribuição percentual mensal por porte
@@ -806,7 +806,7 @@
             document.getElementById('detalhamento').innerHTML = tabelaHTML;
 
             // 9. Gerar gráfico de predição de fluxo mensal
-            gerarGraficoFluxo(cabecas, porte, precoDiaria);
+            gerarGraficoFluxo(cabecas, porte, precoDiaria, diasConf);
         }
 
         // Permitir Enter para fazer login
