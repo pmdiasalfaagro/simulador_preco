@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Pricing TGC - Modelo por Diária</title>
+    <title>Calculadora de Pricing TGC - Tabela 2026</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -119,6 +119,7 @@
         .porte-MEDIO { background: #FFC9AF; color: #135352; }
         .porte-GRANDE { background: #135352; color: white; }
         .porte-ENTERPRISE { background: #575756; color: white; }
+        .porte-MEGA { background: #8B0000; color: white; }
         .detalhamento {
             margin-top: 20px;
             background: white;
@@ -277,7 +278,7 @@
     <div id="appContent" style="display:none;">
     <div class="container">
         <h1>🥩 Calculadora de Preço TGC</h1>
-        <div class="subtitle">Modelo de Precificação por Diária</div>
+        <div class="subtitle">Tabela de Preços 2026 - Fórmula Unificada por Porte</div>
 
         <div class="input-group">
             <label for="cabecas">Quantidade de Cabeças: *</label>
@@ -294,7 +295,27 @@
         <div class="input-group">
             <label for="mesesContrato">Duração do Contrato (meses):</label>
             <input type="number" id="mesesContrato" min="1" max="36" value="12" placeholder="12" oninput="calcular()">
-            <div class="hint">Padrão: 12 meses. Contratos com duração diferente terão valor ajustado.</div>
+            <div class="hint">Padrão: 12 meses</div>
+        </div>
+
+        <div class="input-group">
+            <label for="qtdUsuarios">Quantidade de Usuários:</label>
+            <input type="number" id="qtdUsuarios" min="1" value="3" placeholder="3" oninput="calcular()">
+            <div class="hint">Padrão: 3 usuários</div>
+        </div>
+
+        <div class="input-group">
+            <label for="qtdBases">Quantidade de Bases de Dados:</label>
+            <input type="number" id="qtdBases" min="1" value="1" placeholder="1" oninput="calcular()">
+            <div class="hint">Padrão: 1 base. Acima de 1 base: +25% no valor do contrato</div>
+        </div>
+
+        <div class="input-group">
+            <label for="comboSolucoes" style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" id="comboSolucoes" onchange="calcular()" style="width: auto; margin-right: 10px;">
+                Combo com outras soluções (desconto de 5%)
+            </label>
+            <div class="hint">Marque se o TGC está sendo vendido junto com outras soluções</div>
         </div>
 
         <div id="resultado" class="result" style="display:none;">
@@ -303,17 +324,13 @@
                 <span id="porte" class="porte"></span>
             </div>
             <div class="result-item">
+                <span class="result-label">Expoente:</span>
+                <span class="result-value" id="expoente"></span>
+            </div>
+            <div class="result-item">
                 <span class="result-label">Dias de Confinamento:</span>
                 <span class="result-value" id="diasUsados"></span>
                 <span id="diasInfo" style="font-size: 14px; color: #888;"></span>
-            </div>
-            <div class="result-item">
-                <span class="result-label">Total de Diárias:</span>
-                <span class="result-value" id="totalDiarias"></span>
-            </div>
-            <div class="result-item">
-                <span class="result-label">Preço por Diária:</span>
-                <span class="result-value" id="precoDiaria"></span>
             </div>
 
             <hr style="margin: 20px 0; border: none; border-top: 2px solid #ddd;">
@@ -323,16 +340,12 @@
                 <span class="result-value-large" id="valorAnual"></span>
             </div>
             <div class="result-item">
-                <span class="result-label">Valor de Tabela Atual:</span>
-                <span class="result-value-large" id="valorTabelaAtual"></span>
+                <span class="result-label">Valor Tabela 2025:</span>
+                <span class="result-value" id="valorTabela2025"></span>
             </div>
             <div class="result-item">
                 <span class="result-label">Parcela Mensal:</span>
                 <span class="result-value-large" id="parcelaMensal"></span>
-            </div>
-            <div class="result-item">
-                <span class="result-label">Custo Diária/Boi:</span>
-                <span class="result-value" id="custoDiariaBoi"></span>
             </div>
 
             <div id="ajusteContrato" style="display:none;">
@@ -346,6 +359,17 @@
                 <div class="result-item">
                     <span class="result-label">Parcela Mensal:</span>
                     <span class="result-value-large" id="parcelaMensalAjustada"></span>
+                </div>
+            </div>
+
+            <div id="infoAdicional" style="display:none; margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+                <div class="result-item">
+                    <span class="result-label">Usuários:</span>
+                    <span class="result-value" id="infoUsuarios"></span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Bases de Dados:</span>
+                    <span class="result-value" id="infoBases"></span>
                 </div>
             </div>
 
@@ -391,423 +415,544 @@
 </script>
 
 <script>
+    // Tabela 2026 - Expoentes por porte
+    var expoentePorPorte = {
+        'MICRO': 0.348,
+        'PEQUENO': 0.3824,
+        'MEDIO': 0.4004,
+        'GRANDE': 0.4133,
+        'ENTERPRISE': 0.4255,
+        'MEGA': null  // Usa fórmula fixa
+    };
+
     // Tabela de dias de confinamento por porte
-        var diasPorPorte = {
-            'MICRO': 92,
-            'PEQUENO': 117,
-            'MEDIO': 105,
-            'GRANDE': 105,
-            'ENTERPRISE': 100
-        };
+    var diasPorPorte = {
+        'MICRO': 92,
+        'PEQUENO': 117,
+        'MEDIO': 105,
+        'GRANDE': 105,
+        'ENTERPRISE': 100,
+        'MEGA': 100
+    };
 
-        // Tabela de preços por diária
-        var precoPorDiaria = {
-            'MICRO': 0.0992,
-            'PEQUENO': 0.0456,
-            'MEDIO': 0.0300,
-            'GRANDE': 0.0181,
-            'ENTERPRISE': 0.0175
-        };
+    // Tabela de distribuição percentual mensal por porte
+    var distribuicaoMensalPorPorte = {
+        'ENTERPRISE': [7.52, 8.74, 8.87, 9.20, 9.72, 9.78, 9.56, 9.17, 7.72, 5.84, 6.83, 7.06],
+        'GRANDE': [7.96, 8.25, 8.50, 8.93, 9.18, 9.23, 9.51, 9.48, 7.99, 6.13, 7.95, 6.88],
+        'MEDIO': [7.52, 7.66, 7.83, 8.41, 8.90, 9.37, 10.11, 9.98, 8.70, 6.78, 7.54, 7.19],
+        'PEQUENO': [8.44, 7.79, 8.13, 6.66, 6.80, 8.79, 10.20, 10.83, 9.59, 7.85, 8.38, 6.55],
+        'MICRO': [21.46, 13.98, 7.69, 7.71, 7.94, 7.19, 5.54, 6.84, 5.91, 4.84, 5.23, 5.67],
+        'MEGA': [8.33, 8.33, 8.33, 8.33, 8.33, 8.33, 8.33, 8.33, 8.33, 8.33, 8.33, 8.37]
+    };
 
-        // Tabela de distribuição percentual mensal por porte
-        var distribuicaoMensalPorPorte = {
-            'ENTERPRISE': [7.52, 8.74, 8.87, 9.20, 9.72, 9.78, 9.56, 9.17, 7.72, 5.84, 6.83, 7.06],
-            'GRANDE': [7.96, 8.25, 8.50, 8.93, 9.18, 9.23, 9.51, 9.48, 7.99, 6.13, 7.95, 6.88],
-            'MEDIO': [7.52, 7.66, 7.83, 8.41, 8.90, 9.37, 10.11, 9.98, 8.70, 6.78, 7.54, 7.19],
-            'PEQUENO': [8.44, 7.79, 8.13, 6.66, 6.80, 8.79, 10.20, 10.83, 9.59, 7.85, 8.38, 6.55],
-            'MICRO': [21.46, 13.98, 7.69, 7.71, 7.94, 7.19, 5.54, 6.84, 5.91, 4.84, 5.23, 5.67]
-        };
+    var graficoAtual = null;
 
-        var graficoAtual = null;
+    function identificarPorte(cabecas) {
+        if (cabecas > 150000) return 'MEGA';
+        else if (cabecas > 50000) return 'ENTERPRISE';
+        else if (cabecas > 20000) return 'GRANDE';
+        else if (cabecas > 5000) return 'MEDIO';
+        else if (cabecas > 2000) return 'PEQUENO';
+        else return 'MICRO';
+    }
 
-        function identificarPorte(cabecas) {
-            if (cabecas > 50000) return 'ENTERPRISE';
-            else if (cabecas > 20000) return 'GRANDE';
-            else if (cabecas > 5000) return 'MEDIO';
-            else if (cabecas > 2000) return 'PEQUENO';
-            else return 'MICRO';
+    // Fórmula Tabela 2026
+    function calcularValor2026(cabecas) {
+        // MEGA: > 150.000 = cab × 1,08
+        if (cabecas > 150000) {
+            return cabecas * 1.08;
         }
 
-        function gerarGraficoFluxo(cabecas, porte, precoDiaria) {
-            const distribuicao = distribuicaoMensalPorPorte[porte];
-            const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-            const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-            const diasConf = diasPorPorte[porte]; // Dias médios de confinamento do porte
+        // Para cab < 2000, usar 2000 no cálculo
+        var cabCalculo = cabecas < 2000 ? 2000 : cabecas;
+        var porte = identificarPorte(cabecas);
+        var expoente = expoentePorPorte[porte];
 
-            // Calcular cabeças que ENTRAM em cada mês (conforme distribuição)
-            const cabecasEntramPorMes = [];
-            for (let i = 0; i < 12; i++) {
-                cabecasEntramPorMes.push((cabecas * distribuicao[i]) / 100);
+        // Fórmula: ((65,6 × cab^expoente) × 12) × 1,2222
+        return ((65.6 * Math.pow(cabCalculo, expoente)) * 12) * 1.2222222222;
+    }
+
+    // Fórmula Tabela 2025 (para comparação)
+    function calcularValor2025(cabecas) {
+        if (cabecas <= 2000) {
+            return 12000; // Fixo
+        } else if (cabecas <= 4999) {
+            return ((-0.00045 * cabecas) + 6.8933) * cabecas;
+        } else if (cabecas <= 7749) {
+            return ((65.6 * Math.pow(cabecas, 0.3743)) * 12) * 1.2222;
+        } else if (cabecas <= 8999) {
+            return (0.88 * cabecas) + 20620;
+        } else if (cabecas <= 99999) {
+            return (316.43 * Math.pow(cabecas, -0.505)) * cabecas;
+        } else {
+            return cabecas * 0.95;
+        }
+    }
+
+    function gerarGraficoFluxo(cabecas, porte, valorAnual) {
+        const distribuicao = distribuicaoMensalPorPorte[porte];
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        const diasConf = diasPorPorte[porte];
+
+        // Calcular cabeças que ENTRAM em cada mês (conforme distribuição)
+        const cabecasEntramPorMes = [];
+        for (let i = 0; i < 12; i++) {
+            cabecasEntramPorMes.push((cabecas * distribuicao[i]) / 100);
+        }
+
+        // Calcular diárias de cada lote de entrada ao longo dos meses
+        const cabecasPresentesPorMes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        const diariasPorMes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        // Para cada mês de entrada, distribuir as diárias nos meses seguintes (SEM ciclo)
+        for (let mesEntrada = 0; mesEntrada < 12; mesEntrada++) {
+            const cabecasQueEntraram = cabecasEntramPorMes[mesEntrada];
+            let diasRestantes = diasConf;
+            let mesAtual = mesEntrada;
+
+            while (diasRestantes > 0 && mesAtual < 12) {
+                const diasNoMes = Math.min(diasRestantes, diasPorMes[mesAtual]);
+                diariasPorMes[mesAtual] += cabecasQueEntraram * diasNoMes;
+                cabecasPresentesPorMes[mesAtual] += cabecasQueEntraram * (diasNoMes / diasPorMes[mesAtual]);
+                diasRestantes -= diasNoMes;
+                mesAtual++;
             }
+        }
 
-            // Calcular diárias de cada lote de entrada ao longo dos meses
-            // IMPORTANTE: Cada cabeça gera exatamente diasConf diárias, sem ciclo circular
-            const cabecasPresentesPorMes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-            const diariasPorMes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        // Calcular faturamento proporcional por mês baseado no valor anual 2026
+        const totalDiariasAno = diariasPorMes.reduce((a, b) => a + b, 0);
+        const faturamentoPorMes = [];
+        for (let i = 0; i < 12; i++) {
+            // Proporção do faturamento anual baseado nas diárias do mês
+            faturamentoPorMes.push((diariasPorMes[i] / totalDiariasAno) * valorAnual);
+        }
 
-            // Para cada mês de entrada, distribuir as diárias nos meses seguintes (SEM ciclo)
-            for (let mesEntrada = 0; mesEntrada < 12; mesEntrada++) {
-                const cabecasQueEntraram = cabecasEntramPorMes[mesEntrada];
-                let diasRestantes = diasConf;
-                let mesAtual = mesEntrada;
+        // Destruir gráfico anterior se existir
+        if (graficoAtual) {
+            graficoAtual.destroy();
+        }
 
-                // Distribuir as diárias apenas até dezembro (mês 11)
-                while (diasRestantes > 0 && mesAtual < 12) {
-                    const diasNoMes = Math.min(diasRestantes, diasPorMes[mesAtual]);
+        // Calcular média mensal para a linha
+        const totalAnual = faturamentoPorMes.reduce((a, b) => a + b, 0);
+        const mediaMensal = totalAnual / 12;
+        const dadosMediaMensal = Array(12).fill(mediaMensal);
 
-                    diariasPorMes[mesAtual] += cabecasQueEntraram * diasNoMes;
-                    cabecasPresentesPorMes[mesAtual] += cabecasQueEntraram * (diasNoMes / diasPorMes[mesAtual]);
-
-                    diasRestantes -= diasNoMes;
-                    mesAtual++;
-                }
-            }
-
-            // Calcular faturamento por mês
-            const faturamentoPorMes = [];
-            for (let i = 0; i < 12; i++) {
-                faturamentoPorMes.push(diariasPorMes[i] * precoDiaria);
-            }
-
-            // Para exibição na tabela, usamos as cabeças que entram (distribuição original)
-            const cabecasPorMes = cabecasEntramPorMes;
-
-            // Destruir gráfico anterior se existir
-            if (graficoAtual) {
-                graficoAtual.destroy();
-            }
-
-            // Calcular média mensal para a linha
-            const totalAnual = faturamentoPorMes.reduce((a, b) => a + b, 0);
-            const mediaMensal = totalAnual / 12;
-            const dadosMediaMensal = Array(12).fill(mediaMensal);
-
-            // Criar novo gráfico
-            const ctx = document.getElementById('graficoFluxo').getContext('2d');
-            graficoAtual = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: meses,
-                    datasets: [{
-                        label: 'Faturamento Mensal (R$)',
-                        data: faturamentoPorMes,
-                        backgroundColor: '#A3C72E',
-                        borderColor: '#135352',
-                        borderWidth: 2,
-                        order: 2
-                    }, {
-                        label: 'Média Mensal (R$)',
-                        data: dadosMediaMensal,
-                        type: 'line',
-                        borderColor: '#FF6B6B',
-                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                        borderWidth: 3,
-                        borderDash: [5, 5],
-                        pointRadius: 4,
-                        pointBackgroundColor: '#FF6B6B',
-                        order: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            labels: {
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const valor = context.parsed.y;
-                                    const indice = context.dataIndex;
-                                    const cabPresentes = cabecasPresentesPorMes[indice];
-                                    const cabEntram = cabecasEntramPorMes[indice];
-
-                                    return [
-                                        `Faturamento: R$ ${valor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-                                        `Cabeças Presentes: ${Math.round(cabPresentes).toLocaleString('pt-BR')}`,
-                                        `Entraram no mês: ${Math.round(cabEntram).toLocaleString('pt-BR')} (${distribuicao[indice].toFixed(2)}%)`
-                                    ];
-                                }
-                            }
+        // Criar novo gráfico
+        const ctx = document.getElementById('graficoFluxo').getContext('2d');
+        graficoAtual = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: meses,
+                datasets: [{
+                    label: 'Faturamento Mensal (R$)',
+                    data: faturamentoPorMes,
+                    backgroundColor: '#A3C72E',
+                    borderColor: '#135352',
+                    borderWidth: 2,
+                    order: 2
+                }, {
+                    label: 'Média Mensal (R$)',
+                    data: dadosMediaMensal,
+                    type: 'line',
+                    borderColor: '#FF6B6B',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [5, 5],
+                    pointRadius: 4,
+                    pointBackgroundColor: '#FF6B6B',
+                    order: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        labels: {
+                            font: { size: 14, weight: 'bold' }
                         }
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-                                },
-                                font: {
-                                    size: 12
-                                }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Faturamento (R$)',
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                }
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                font: {
-                                    size: 12,
-                                    weight: 'bold'
-                                }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Meses do Ano',
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                }
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const valor = context.parsed.y;
+                                const indice = context.dataIndex;
+                                const cabPresentes = cabecasPresentesPorMes[indice];
+                                const cabEntram = cabecasEntramPorMes[indice];
+
+                                return [
+                                    `Faturamento: R$ ${valor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                                    `Cabeças Presentes: ${Math.round(cabPresentes).toLocaleString('pt-BR')}`,
+                                    `Entraram no mês: ${Math.round(cabEntram).toLocaleString('pt-BR')} (${distribuicao[indice].toFixed(2)}%)`
+                                ];
                             }
                         }
                     }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                            },
+                            font: { size: 12 }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Faturamento (R$)',
+                            font: { size: 14, weight: 'bold' }
+                        }
+                    },
+                    x: {
+                        ticks: { font: { size: 12, weight: 'bold' } },
+                        title: {
+                            display: true,
+                            text: 'Meses do Ano',
+                            font: { size: 14, weight: 'bold' }
+                        }
+                    }
                 }
-            });
-
-            // Preencher tabela com dados mensais
-            const tabelaBody = document.getElementById('tabelaFluxoBody');
-            tabelaBody.innerHTML = '';
-
-            const mesesCompletos = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-            let totalCabecasEntram = 0;
-            let totalDiarias = 0;
-            let totalFaturamento = 0;
-
-            for (let i = 0; i < 12; i++) {
-                const row = document.createElement('tr');
-
-                const cabecasEntram = cabecasEntramPorMes[i];
-                const cabecasPresentes = cabecasPresentesPorMes[i];
-                const diarias = diariasPorMes[i];
-                const faturamentoMes = faturamentoPorMes[i];
-                totalCabecasEntram += cabecasEntram;
-                totalDiarias += diarias;
-                totalFaturamento += faturamentoMes;
-
-                row.innerHTML = `
-                    <td><strong>${mesesCompletos[i]}</strong></td>
-                    <td>${Math.round(cabecasEntram).toLocaleString('pt-BR')}</td>
-                    <td>${Math.round(cabecasPresentes).toLocaleString('pt-BR')}</td>
-                    <td>${Math.round(diarias).toLocaleString('pt-BR')}</td>
-                    <td>R$ ${faturamentoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                `;
-                tabelaBody.appendChild(row);
             }
+        });
 
-            // Linha de total
-            const totalRow = document.createElement('tr');
-            totalRow.className = 'total-row';
-            totalRow.innerHTML = `
-                <td><strong>TOTAL ANUAL</strong></td>
-                <td><strong>${Math.round(totalCabecasEntram).toLocaleString('pt-BR')}</strong></td>
-                <td><strong>-</strong></td>
-                <td><strong>${Math.round(totalDiarias).toLocaleString('pt-BR')}</strong></td>
-                <td><strong>R$ ${totalFaturamento.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+        // Preencher tabela com dados mensais
+        const tabelaBody = document.getElementById('tabelaFluxoBody');
+        tabelaBody.innerHTML = '';
+
+        const mesesCompletos = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                               'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+        let totalCabecasEntram = 0;
+        let totalDiarias = 0;
+        let totalFaturamento = 0;
+
+        for (let i = 0; i < 12; i++) {
+            const row = document.createElement('tr');
+            const cabecasEntram = cabecasEntramPorMes[i];
+            const cabecasPresentes = cabecasPresentesPorMes[i];
+            const diarias = diariasPorMes[i];
+            const faturamentoMes = faturamentoPorMes[i];
+            totalCabecasEntram += cabecasEntram;
+            totalDiarias += diarias;
+            totalFaturamento += faturamentoMes;
+
+            row.innerHTML = `
+                <td><strong>${mesesCompletos[i]}</strong></td>
+                <td>${Math.round(cabecasEntram).toLocaleString('pt-BR')}</td>
+                <td>${Math.round(cabecasPresentes).toLocaleString('pt-BR')}</td>
+                <td>${Math.round(diarias).toLocaleString('pt-BR')}</td>
+                <td>R$ ${faturamentoMes.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
             `;
-            tabelaBody.appendChild(totalRow);
-
-            // Linha de média mensal
-            const mediaRow = document.createElement('tr');
-            mediaRow.className = 'total-row';
-            mediaRow.style.background = 'rgba(163, 199, 46, 0.15)';
-            var mediaMensalTabela = totalFaturamento / 12;
-            mediaRow.innerHTML = `
-                <td><strong>MÉDIA MENSAL</strong></td>
-                <td><strong>${Math.round(totalCabecasEntram / 12).toLocaleString('pt-BR')}</strong></td>
-                <td><strong>-</strong></td>
-                <td><strong>${Math.round(totalDiarias / 12).toLocaleString('pt-BR')}</strong></td>
-                <td><strong>R$ ${mediaMensalTabela.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
-            `;
-            tabelaBody.appendChild(mediaRow);
-
-            // Mostrar container do gráfico
-            document.getElementById('graficoContainer').style.display = 'block';
+            tabelaBody.appendChild(row);
         }
 
-        function calcular() {
-            var cabecas = parseInt(document.getElementById('cabecas').value);
-            const diasConfInformado = document.getElementById('diasConf').value;
-            const mesesContrato = parseInt(document.getElementById('mesesContrato').value) || 12;
-            const resultadoDiv = document.getElementById('resultado');
+        // Linha de total
+        const totalRow = document.createElement('tr');
+        totalRow.className = 'total-row';
+        totalRow.innerHTML = `
+            <td><strong>TOTAL ANUAL</strong></td>
+            <td><strong>${Math.round(totalCabecasEntram).toLocaleString('pt-BR')}</strong></td>
+            <td><strong>-</strong></td>
+            <td><strong>${Math.round(totalDiarias).toLocaleString('pt-BR')}</strong></td>
+            <td><strong>R$ ${totalFaturamento.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+        `;
+        tabelaBody.appendChild(totalRow);
 
-            if (!cabecas || cabecas <= 0) {
-                resultadoDiv.style.display = 'none';
-                return;
-            }
+        // Linha de média mensal
+        const mediaRow = document.createElement('tr');
+        mediaRow.className = 'total-row';
+        mediaRow.style.background = 'rgba(163, 199, 46, 0.15)';
+        var mediaMensalTabela = totalFaturamento / 12;
+        mediaRow.innerHTML = `
+            <td><strong>MÉDIA MENSAL</strong></td>
+            <td><strong>${Math.round(totalCabecasEntram / 12).toLocaleString('pt-BR')}</strong></td>
+            <td><strong>-</strong></td>
+            <td><strong>${Math.round(totalDiarias / 12).toLocaleString('pt-BR')}</strong></td>
+            <td><strong>R$ ${mediaMensalTabela.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+        `;
+        tabelaBody.appendChild(mediaRow);
 
-            // 1. Identificar porte
-            const porte = identificarPorte(cabecas);
+        // Mostrar container do gráfico
+        document.getElementById('graficoContainer').style.display = 'block';
+    }
 
-            // 2. Determinar dias de confinamento
-            let diasConf;
-            let diasUsadosPadrao = false;
+    function calcular() {
+        var cabecas = parseInt(document.getElementById('cabecas').value);
+        const diasConfInformado = document.getElementById('diasConf').value;
+        const mesesContrato = parseInt(document.getElementById('mesesContrato').value) || 12;
+        const qtdUsuarios = parseInt(document.getElementById('qtdUsuarios').value) || 3;
+        const qtdBases = parseInt(document.getElementById('qtdBases').value) || 1;
+        const isCombo = document.getElementById('comboSolucoes').checked;
+        const resultadoDiv = document.getElementById('resultado');
 
-            if (diasConfInformado && diasConfInformado > 0) {
-                diasConf = parseFloat(diasConfInformado);
-            } else {
-                diasConf = diasPorPorte[porte];
-                diasUsadosPadrao = true;
-            }
+        if (!cabecas || cabecas <= 0) {
+            resultadoDiv.style.display = 'none';
+            return;
+        }
 
-            // 3. Obter preço da diária
-            const precoDiaria = precoPorDiaria[porte];
+        // 1. Identificar porte
+        const porte = identificarPorte(cabecas);
+        const expoente = expoentePorPorte[porte];
 
-            // 4. Calcular valores
-            const totalDiarias = cabecas * diasConf;
-            const valorAnual = totalDiarias * precoDiaria;
-            const parcelaMensal = valorAnual / 12;
+        // 2. Determinar dias de confinamento
+        let diasConf;
+        let diasUsadosPadrao = false;
+        if (diasConfInformado && diasConfInformado > 0) {
+            diasConf = parseFloat(diasConfInformado);
+        } else {
+            diasConf = diasPorPorte[porte];
+            diasUsadosPadrao = true;
+        }
 
-            // 4.1. Calcular valor da Tabela Atual: ((65,6*CAB_QTDE^0,3743)*12)*(100%+22,22222222%)
-            const valorTabelaAtual = ((65.6 * Math.pow(cabecas, 0.3743)) * 12) * (1 + 0.2222222222);
+        // 3. Calcular valor usando fórmula 2026
+        let valorAnualBase = calcularValor2026(cabecas);
 
-            // 5. Ajustar para duração do contrato diferente
-            const valorContrato = (valorAnual / 12) * mesesContrato;
-            const parcelaMensalAjustada = valorContrato / mesesContrato;
+        // 3.1. Aplicar adicional de 25% se mais de 1 base de dados
+        const temAdicionalBases = qtdBases > 1;
+        let valorComBases = temAdicionalBases ? valorAnualBase * 1.25 : valorAnualBase;
 
-            // 6. Mostrar resultados
-            resultadoDiv.style.display = 'block';
+        // 3.2. Aplicar desconto de 5% se combo com outras soluções
+        const valorAnual = isCombo ? valorComBases * 0.95 : valorComBases;
+        const parcelaMensal = valorAnual / 12;
 
-            const porteSpan = document.getElementById('porte');
-            porteSpan.textContent = porte;
-            porteSpan.className = 'porte porte-' + porte;
+        // 4. Calcular valor Tabela 2025 para comparação
+        const valorTabela2025 = calcularValor2025(cabecas);
 
-            document.getElementById('diasUsados').textContent = diasConf.toFixed(1) + ' dias';
-            document.getElementById('diasInfo').textContent =
-                diasUsadosPadrao ? ' (padrão do porte)' : ' (informado pelo cliente)';
+        // 5. Ajustar para duração do contrato diferente
+        const valorContrato = (valorAnual / 12) * mesesContrato;
+        const parcelaMensalAjustada = valorContrato / mesesContrato;
 
-            document.getElementById('totalDiarias').textContent =
-                totalDiarias.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' diárias';
+        // 6. Mostrar resultados
+        resultadoDiv.style.display = 'block';
 
-            document.getElementById('precoDiaria').textContent =
-                'R$ ' + precoDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + '/diária';
+        const porteSpan = document.getElementById('porte');
+        porteSpan.textContent = porte;
+        porteSpan.className = 'porte porte-' + porte;
 
-            document.getElementById('valorAnual').textContent =
-                'R$ ' + valorAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (porte === 'MEGA') {
+            document.getElementById('expoente').textContent = 'N/A (fórmula fixa: cab × 1,08)';
+        } else {
+            document.getElementById('expoente').textContent = expoente.toFixed(4);
+        }
 
-            document.getElementById('valorTabelaAtual').textContent =
-                'R$ ' + valorTabelaAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('diasUsados').textContent = diasConf.toFixed(1) + ' dias';
+        document.getElementById('diasInfo').textContent =
+            diasUsadosPadrao ? ' (padrão do porte)' : ' (informado pelo cliente)';
 
-            document.getElementById('parcelaMensal').textContent =
-                'R$ ' + parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        let infoValor = '';
+        if (temAdicionalBases && isCombo) {
+            infoValor = ' (+25% bases, -5% combo)';
+        } else if (temAdicionalBases) {
+            infoValor = ' (+25% múltiplas bases)';
+        } else if (isCombo) {
+            infoValor = ' (-5% combo)';
+        }
+        document.getElementById('valorAnual').textContent =
+            'R$ ' + valorAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + infoValor;
 
-            document.getElementById('custoDiariaBoi').textContent =
-                'R$ ' + precoDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + '/diária';
+        document.getElementById('valorTabela2025').textContent =
+            'R$ ' + valorTabela2025.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-            // 7. Mostrar/ocultar ajuste de contrato
-            const ajusteDiv = document.getElementById('ajusteContrato');
-            if (mesesContrato !== 12) {
-                ajusteDiv.style.display = 'block';
-                document.getElementById('mesesInfo').textContent = mesesContrato;
-                document.getElementById('valorContrato').textContent =
-                    'R$ ' + valorContrato.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                document.getElementById('parcelaMensalAjustada').textContent =
-                    'R$ ' + parcelaMensalAjustada.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            } else {
-                ajusteDiv.style.display = 'none';
-            }
+        document.getElementById('parcelaMensal').textContent =
+            'R$ ' + parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-            // 8. Criar tabela de detalhamento
-            let tabelaHTML = '<h3>📊 Detalhamento do Cálculo:</h3><table>';
-            tabelaHTML += '<tr><th>Item</th><th>Valor</th></tr>';
+        // 7. Mostrar/ocultar ajuste de contrato
+        const ajusteDiv = document.getElementById('ajusteContrato');
+        if (mesesContrato !== 12) {
+            ajusteDiv.style.display = 'block';
+            document.getElementById('mesesInfo').textContent = mesesContrato;
+            document.getElementById('valorContrato').textContent =
+                'R$ ' + valorContrato.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('parcelaMensalAjustada').textContent =
+                'R$ ' + parcelaMensalAjustada.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            ajusteDiv.style.display = 'none';
+        }
 
+        // 8. Mostrar info adicional
+        const infoAdicionalDiv = document.getElementById('infoAdicional');
+        if (qtdUsuarios > 0 || qtdBases > 0) {
+            infoAdicionalDiv.style.display = 'block';
+            document.getElementById('infoUsuarios').textContent = qtdUsuarios > 0 ? qtdUsuarios : '-';
+            document.getElementById('infoBases').textContent = qtdBases > 0 ? qtdBases : '-';
+        } else {
+            infoAdicionalDiv.style.display = 'none';
+        }
+
+        // 9. Criar tabela de detalhamento
+        var cabCalculo = cabecas < 2000 ? 2000 : cabecas;
+        let tabelaHTML = '<h3>📊 Detalhamento do Cálculo (Tabela 2026):</h3><table>';
+        tabelaHTML += '<tr><th>Item</th><th>Valor</th></tr>';
+
+        tabelaHTML += `<tr>
+            <td><strong>Cabeças Informadas</strong></td>
+            <td>${cabecas.toLocaleString('pt-BR')}</td>
+        </tr>`;
+
+        if (cabecas < 2000) {
             tabelaHTML += `<tr>
-                <td><strong>Cabeças</strong></td>
-                <td>${cabecas.toLocaleString('pt-BR')}</td>
+                <td><strong>Cabeças Usadas no Cálculo</strong></td>
+                <td>${cabCalculo.toLocaleString('pt-BR')} (mínimo 2.000)</td>
             </tr>`;
+        }
 
+        tabelaHTML += `<tr>
+            <td><strong>Porte Identificado</strong></td>
+            <td>${porte}</td>
+        </tr>`;
+
+        tabelaHTML += `<tr>
+            <td><strong>Dias de Confinamento ${diasUsadosPadrao ? '(padrão)' : '(informado)'}</strong></td>
+            <td>${diasConf.toFixed(1)} dias</td>
+        </tr>`;
+
+        if (porte === 'MEGA') {
             tabelaHTML += `<tr>
-                <td><strong>Dias de Confinamento ${diasUsadosPadrao ? '(padrão)' : '(informado)'}</strong></td>
-                <td>${diasConf.toFixed(1)} dias</td>
+                <td><strong>Fórmula Aplicada</strong></td>
+                <td>cab × 1,08</td>
             </tr>`;
-
-            tabelaHTML += `<tr>
-                <td><strong>Total de Diárias</strong></td>
-                <td>${totalDiarias.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</td>
+            tabelaHTML += `<tr class="highlight-row">
+                <td><strong>Cálculo: ${cabecas.toLocaleString('pt-BR')} × 1,08</strong></td>
+                <td><strong>R$ ${valorAnualBase.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
             </tr>`;
-
+        } else {
             tabelaHTML += `<tr>
-                <td><strong>Preço por Diária (porte ${porte})</strong></td>
-                <td>R$ ${precoDiaria.toFixed(4)}</td>
+                <td><strong>Expoente do Porte</strong></td>
+                <td>${expoente.toFixed(4)}</td>
+            </tr>`;
+            tabelaHTML += `<tr>
+                <td><strong>Fórmula Aplicada</strong></td>
+                <td>((65,6 × cab<sup>${expoente}</sup>) × 12) × 1,2222</td>
+            </tr>`;
+            const parcela1 = 65.6 * Math.pow(cabCalculo, expoente);
+            const parcela2 = parcela1 * 12;
+            tabelaHTML += `<tr>
+                <td><strong>Passo 1: 65,6 × ${cabCalculo.toLocaleString('pt-BR')}<sup>${expoente}</sup></strong></td>
+                <td>R$ ${parcela1.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+            </tr>`;
+            tabelaHTML += `<tr>
+                <td><strong>Passo 2: × 12 meses</strong></td>
+                <td>R$ ${parcela2.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+            </tr>`;
+            tabelaHTML += `<tr class="highlight-row">
+                <td><strong>Passo 3: × 1,2222 (22,22% margem)</strong></td>
+                <td><strong>R$ ${valorAnualBase.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+            </tr>`;
+        }
+
+        // Adicional por múltiplas bases
+        if (temAdicionalBases) {
+            tabelaHTML += `<tr style="background: #fff3cd;">
+                <td><strong>Adicional +25% (${qtdBases} bases de dados)</strong></td>
+                <td><strong>+ R$ ${(valorAnualBase * 0.25).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+            </tr>`;
+            tabelaHTML += `<tr>
+                <td><strong>Subtotal com bases</strong></td>
+                <td><strong>R$ ${valorComBases.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+            </tr>`;
+        }
+
+        // Desconto combo
+        if (isCombo) {
+            tabelaHTML += `<tr style="background: #d4edda;">
+                <td><strong>Desconto Combo -5% (vendido com outras soluções)</strong></td>
+                <td><strong>- R$ ${(valorComBases * 0.05).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+            </tr>`;
+        }
+
+        // Valor final se houver ajustes
+        if (temAdicionalBases || isCombo) {
+            tabelaHTML += `<tr class="highlight-row">
+                <td><strong>Valor Anual Final</strong></td>
+                <td><strong>R$ ${valorAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+            </tr>`;
+        }
+
+        // Info de usuários e bases
+        tabelaHTML += `<tr>
+            <td><strong>Usuários</strong></td>
+            <td>${qtdUsuarios}</td>
+        </tr>`;
+        tabelaHTML += `<tr>
+            <td><strong>Bases de Dados</strong></td>
+            <td>${qtdBases}${temAdicionalBases ? ' (+25% aplicado)' : ''}</td>
+        </tr>`;
+        tabelaHTML += `<tr>
+            <td><strong>Combo com outras soluções</strong></td>
+            <td>${isCombo ? 'Sim (-5% aplicado)' : 'Não'}</td>
+        </tr>`;
+
+        // Comparação com Tabela 2025
+        const diferenca = valorAnual - valorTabela2025;
+        const percentualDif = (diferenca / valorTabela2025) * 100;
+        const difColor = diferenca >= 0 ? '#A3C72E' : '#e74c3c';
+
+        tabelaHTML += `<tr>
+            <td><strong>Valor Tabela 2025 (comparação)</strong></td>
+            <td>R$ ${valorTabela2025.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+        </tr>`;
+
+        tabelaHTML += `<tr>
+            <td><strong>Diferença (2026 - 2025)</strong></td>
+            <td style="color: ${difColor}; font-weight: bold;">R$ ${diferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${percentualDif >= 0 ? '+' : ''}${percentualDif.toFixed(2)}%)</td>
+        </tr>`;
+
+        if (mesesContrato !== 12) {
+            tabelaHTML += `<tr>
+                <td><strong>Duração do Contrato</strong></td>
+                <td>${mesesContrato} meses</td>
             </tr>`;
 
             tabelaHTML += `<tr class="highlight-row">
-                <td><strong>Fórmula: Valor Anual = Cabeças × Dias × Preço Diária</strong></td>
-                <td><strong>R$ ${valorAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+                <td><strong>Valor Total do Contrato</strong></td>
+                <td><strong>R$ ${valorContrato.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
             </tr>`;
-
-            tabelaHTML += `<tr>
-                <td><strong>Valor de Tabela Atual ((65,6×CAB^0,3743)×12)×122,22%</strong></td>
-                <td>R$ ${valorTabelaAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-            </tr>`;
-
-            const diferenca = valorAnual - valorTabelaAtual;
-            const percentualDif = (diferenca / valorTabelaAtual) * 100;
-            const difColor = diferenca >= 0 ? '#A3C72E' : '#FFC9AF';
-
-            tabelaHTML += `<tr>
-                <td><strong>Diferença (Diária - Tabela Atual)</strong></td>
-                <td style="color: ${difColor}; font-weight: bold;">R$ ${diferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${percentualDif.toFixed(2)}%)</td>
-            </tr>`;
-
-            if (mesesContrato !== 12) {
-                tabelaHTML += `<tr>
-                    <td><strong>Duração do Contrato</strong></td>
-                    <td>${mesesContrato} meses</td>
-                </tr>`;
-
-                tabelaHTML += `<tr class="highlight-row">
-                    <td><strong>Valor Total do Contrato</strong></td>
-                    <td><strong>R$ ${valorContrato.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
-                </tr>`;
-            }
-
-            tabelaHTML += '</table>';
-
-            // Tabela de referência por porte
-            tabelaHTML += '<h3 style="margin-top: 25px;">📋 Tabela de Referência:</h3><table>';
-            tabelaHTML += '<tr><th>Porte</th><th>Faixa</th><th>Dias Padrão</th><th>Preço Diária</th></tr>';
-
-            const faixas = {
-                'MICRO': 'Até 2.000',
-                'PEQUENO': '2.001 a 5.000',
-                'MEDIO': '5.001 a 20.000',
-                'GRANDE': '20.001 a 50.000',
-                'ENTERPRISE': 'Acima de 50.000'
-            };
-
-            for (let p of ['MICRO', 'PEQUENO', 'MEDIO', 'GRANDE', 'ENTERPRISE']) {
-                const rowClass = p === porte ? 'class="highlight-row"' : '';
-                tabelaHTML += `<tr ${rowClass}>
-                    <td><strong>${p}</strong></td>
-                    <td>${faixas[p]}</td>
-                    <td>${diasPorPorte[p].toFixed(1)} dias</td>
-                    <td>R$ ${precoPorDiaria[p].toFixed(4)}</td>
-                </tr>`;
-            }
-
-            tabelaHTML += '</table>';
-
-            document.getElementById('detalhamento').innerHTML = tabelaHTML;
-
-            // 9. Gerar gráfico de predição de fluxo mensal
-            gerarGraficoFluxo(cabecas, porte, precoDiaria, diasConf);
         }
+
+        tabelaHTML += '</table>';
+
+        // Tabela de referência por porte - Tabela 2026
+        tabelaHTML += '<h3 style="margin-top: 25px;">📋 Tabela de Referência 2026:</h3><table>';
+        tabelaHTML += '<tr><th>Porte</th><th>Faixa de Cabeças</th><th>Expoente</th><th>Dias Padrão</th></tr>';
+
+        const faixas2026 = {
+            'MICRO': '0 - 2.000',
+            'PEQUENO': '2.001 - 5.000',
+            'MEDIO': '5.001 - 20.000',
+            'GRANDE': '20.001 - 50.000',
+            'ENTERPRISE': '50.001 - 150.000',
+            'MEGA': '> 150.000'
+        };
+
+        for (let p of ['MICRO', 'PEQUENO', 'MEDIO', 'GRANDE', 'ENTERPRISE', 'MEGA']) {
+            const rowClass = p === porte ? 'class="highlight-row"' : '';
+            const exp = expoentePorPorte[p];
+            const expDisplay = exp ? exp.toFixed(4) : 'N/A (cab × 1,08)';
+            tabelaHTML += `<tr ${rowClass}>
+                <td><strong>${p}</strong></td>
+                <td>${faixas2026[p]}</td>
+                <td>${expDisplay}</td>
+                <td>${diasPorPorte[p]} dias</td>
+            </tr>`;
+        }
+
+        tabelaHTML += '</table>';
+
+        // Nota sobre MICRO
+        if (porte === 'MICRO') {
+            tabelaHTML += `<div class="alert alert-warning" style="margin-top: 15px;">
+                <strong>⚠️ Nota:</strong> Para clientes MICRO (até 2.000 cabeças), o cálculo usa 2.000 cabeças como base mínima.
+            </div>`;
+        }
+
+        document.getElementById('detalhamento').innerHTML = tabelaHTML;
+
+        // 10. Gerar gráfico de predição de fluxo mensal
+        gerarGraficoFluxo(cabecas, porte, valorAnual);
+    }
 
         // Permitir Enter para fazer login
         document.addEventListener('DOMContentLoaded', function() {
@@ -826,7 +971,7 @@
 
 <div class="footer">
         Ponta - Inteligência que conecta a pecuária<br>
-        © 2025 - Todos os direitos reservados
+        © 2026 - Todos os direitos reservados
     </div>
 </body>
 </html>
